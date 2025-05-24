@@ -26,35 +26,38 @@ jobs:
         run: |
           pip install buildozer cython==0.29.33
 
-      - name: Setup Android environment
+      - name: Setup Android SDK
         run: |
           mkdir -p ~/.android
           touch ~/.android/repositories.cfg
           
-          # Only initialize if spec file doesn't exist
+          # Initialize Buildozer environment
           if [ ! -f buildozer.spec ]; then
             buildozer init
           fi
           
-          # Update Android SDK components
-          buildozer android update
+          # Force SDK installation
+          echo "Installing Android SDK..."
+          mkdir -p ~/.buildozer/android/platform
+          cd ~/.buildozer/android/platform
+          wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+          unzip commandlinetools-linux-*.zip
+          mv cmdline-tools android-sdk
+          cd android-sdk
+          mkdir cmdline-tools
+          mv tools cmdline-tools/latest
+          cd -
 
-      - name: Install Android SDK components
+      - name: Install Android components
         run: |
-          export ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk
+          export ANDROID_SDK_ROOT=~/.buildozer/android/platform/android-sdk
           export PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin
-          
-          # Wait for SDK manager
-          while [ ! -f $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager ]; do
-            sleep 5
-          done
           
           yes | sdkmanager --licenses
           sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
-
-      - name: Verify aidl exists
-        run: |
-          ls -la $HOME/.buildozer/android/platform/android-sdk/build-tools/34.0.0/aidl
+          
+          # Verify installation
+          ls -la $ANDROID_SDK_ROOT/build-tools/34.0.0/aidl
 
       - name: Build APK
         run: |
