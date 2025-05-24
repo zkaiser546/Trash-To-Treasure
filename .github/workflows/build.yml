@@ -7,7 +7,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-22.04
-    timeout-minutes: 30  # Buildozer can take a while
+    timeout-minutes: 30
 
     steps:
       - name: Checkout code
@@ -26,33 +26,35 @@ jobs:
         run: |
           pip install buildozer cython==0.29.33
 
-      - name: Initialize Buildozer environment
+      - name: Setup Android environment
         run: |
           mkdir -p ~/.android
           touch ~/.android/repositories.cfg
-          echo "Initializing Buildozer..."
-          buildozer init  # Ensure spec file exists
-          buildozer android update  # Download basic SDK components
+          
+          # Only initialize if spec file doesn't exist
+          if [ ! -f buildozer.spec ]; then
+            buildozer init
+          fi
+          
+          # Update Android SDK components
+          buildozer android update
 
       - name: Install Android SDK components
         run: |
           export ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk
           export PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin
           
-          # Wait for SDK to be ready
+          # Wait for SDK manager
           while [ ! -f $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager ]; do
-            echo "Waiting for SDK manager..."
             sleep 5
           done
           
-          # Accept licenses first
           yes | sdkmanager --licenses
-          
-          # Install specific components
           sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
-          
-          # Verify installation
-          ls -la $ANDROID_SDK_ROOT/build-tools/34.0.0/aidl
+
+      - name: Verify aidl exists
+        run: |
+          ls -la $HOME/.buildozer/android/platform/android-sdk/build-tools/34.0.0/aidl
 
       - name: Build APK
         run: |
