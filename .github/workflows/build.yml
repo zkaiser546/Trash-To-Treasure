@@ -1,4 +1,4 @@
-name: Bulletproof APK Build
+name: Android APK Builder
 
 on:
   push:
@@ -7,26 +7,23 @@ on:
 jobs:
   build:
     runs-on: ubuntu-22.04
-    timeout-minutes: 90
+    timeout-minutes: 60
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Purge previous installations
+      - name: Clean environment
         run: |
-          rm -rf ~/.buildozer
-          rm -rf ~/.android
-          rm -rf ~/.gradle
+          rm -rf ~/.buildozer ~/.android ~/.gradle
 
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
+          sudo apt-get install -y \
             git zip unzip python3-pip python3-venv \
             openjdk-17-jdk autoconf libtool pkg-config \
-            zlib1g-dev libncurses5-dev cython3 \
-            libssl-dev libffi-dev
+            zlib1g-dev libncurses5-dev cython3
 
       - name: Setup Python environment
         run: |
@@ -35,55 +32,68 @@ jobs:
           pip install --upgrade pip wheel
           pip install buildozer cython==0.29.33
 
-      - name: Manual Android SDK/NDK install
+      - name: Install Android SDK
         run: |
           mkdir -p ~/.buildozer/android/platform
           cd ~/.buildozer/android/platform
-
-          # Install Command Line Tools
+          
+          # Download command line tools
           wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
           unzip -qq commandlinetools-linux-*.zip
           rm commandlinetools-linux-*.zip
+          
+          # Create proper directory structure
           mkdir -p android-sdk/cmdline-tools
           mv cmdline-tools android-sdk/cmdline-tools/latest
-
-          # Install NDK
-          wget -q https://dl.google.com/android/repository/android-ndk-r25b-linux.zip
-          unzip -qq android-ndk-*.zip
-          rm android-ndk-*.zip
-          mv android-ndk-r25b android-ndk-r25b
-
+          
           # Create legacy symlinks
           ln -s cmdline-tools/latest android-sdk/tools
           ln -s cmdline-tools/latest/bin/sdkmanager android-sdk/tools/bin/sdkmanager
+
+      - name: Install Android NDK
+        run: |
+          cd ~/.buildozer/android/platform
+          wget -q https://dl.google.com/android/repository/android-ndk-r25b-linux.zip
+          unzip -qq android-ndk-*.zip
+          rm android-ndk-*.zip
 
       - name: Configure Android environment
         run: |
           echo "ANDROID_SDK_ROOT=~/.buildozer/android/platform/android-sdk" >> $GITHUB_ENV
           echo "ANDROID_NDK_HOME=~/.buildozer/android/platform/android-ndk-r25b" >> $GITHUB_ENV
           echo "PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin" >> $GITHUB_ENV
-
+          
           # Accept licenses
-          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses
-
+          yes | sdkmanager --licenses
+          
           # Install essential components
-          $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager \
-            "platform-tools" "build-tools;34.0.0" "platforms;android-34"
+          sdkmanager "platform-tools" "build-tools;34.0.0" "platforms;android-34"
 
-      - name: Build with verbose logging
+      - name: Verify installations
+        run: |
+          ls -la $ANDROID_SDK_ROOT/build-tools/34.0.0/aidl
+          ls -la $ANDROID_NDK_HOME
+
+      - name: Build APK
         run: |
           source venv/bin/activate
           buildozer android clean
           buildozer -v android debug 2>&1 | tee build.log
-          [ -f bin/*.apk ] || (echo "APK not found!" && exit 1)
+          
+          # Verify APK exists
+          if [ ! -f bin/*.apk ]; then
+            echo "APK generation failed!"
+            exit 1
+          fi
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: apk
+          name: android-apk
           path: bin/*.apk
 
       - name: Upload build log
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: build-log
