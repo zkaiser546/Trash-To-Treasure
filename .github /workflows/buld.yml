@@ -5,11 +5,11 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04  # Updated from ubuntu-20.04 to avoid deprecation issues
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Get Date
         id: get-date
@@ -17,13 +17,13 @@ jobs:
         shell: bash
 
       - name: Cache Buildozer Global Directory
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: .buildozer_global
           key: buildozer-global-${{ hashFiles('buildozer.spec') }}
 
       - name: Cache Buildozer Directory
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: .buildozer
           key: ${{ runner.os }}-${{ env.date }}-${{ hashFiles('buildozer.spec') }}
@@ -36,7 +36,7 @@ jobs:
           buildozer_version: stable
 
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: package
-          path: bin/*.apk  # Adjust based on where Buildozer outputs the APK
+          path: bin/*.apk  # Ensure this matches the output directory of Buildozer
