@@ -36,16 +36,16 @@ jobs:
             buildozer init
           fi
           
-          # Force SDK installation
-          echo "Installing Android SDK..."
-          mkdir -p ~/.buildozer/android/platform
-          cd ~/.buildozer/android/platform
+          # Clean previous installations
+          rm -rf ~/.buildozer/android/platform/android-sdk
+          
+          # Install Command Line Tools
+          mkdir -p ~/.buildozer/android/platform/android-sdk/cmdline-tools
+          cd ~/.buildozer/android/platform/android-sdk/cmdline-tools
           wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
           unzip commandlinetools-linux-*.zip
-          mv cmdline-tools android-sdk
-          cd android-sdk
-          mkdir cmdline-tools
-          mv tools cmdline-tools/latest
+          rm commandlinetools-linux-*.zip
+          mv cmdline-tools latest
           cd -
 
       - name: Install Android components
