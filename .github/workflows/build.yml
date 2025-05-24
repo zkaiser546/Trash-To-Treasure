@@ -1,42 +1,44 @@
-name: CI
+name: Build APK with Buildozer
+
 on:
   push:
-    branches: [main]
+    branches: [ main ]
 
 jobs:
   build:
-    runs-on: ubuntu-20.04
-
+    runs-on: ubuntu-22.04  # ✅ Updated to supported Ubuntu version
+    
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v2
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Get Date
-        id: get-date
-        run: echo "date=$(date -u "+%Y%m%d")" >> "$GITHUB_ENV"
-        shell: bash
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            git zip unzip python3-pip \
+            openjdk-17-jdk autoconf libtool \
+            pkg-config zlib1g-dev libncurses5-dev
 
-      - name: Cache Buildozer Global Directory
-        uses: actions/cache@v2
+      - name: Install Buildozer
+        run: pip install buildozer
+
+      - name: Cache Buildozer dependencies
+        uses: actions/cache@v3
         with:
-          path: .buildozer_global
-          key: buildozer-global-${{ hashFiles('buildozer.spec') }}
+          path: |
+            ~/.buildozer
+            ~/.gradle
+          key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}
+          restore-keys: |
+            ${{ runner.os }}-buildozer-
 
-      - name: Cache Buildozer Directory
-        uses: actions/cache@v2
-        with:
-          path: .buildozer
-          key: ${{ runner.os }}-${{ env.date }}-${{ hashFiles('buildozer.spec') }}
+      - name: Build APK
+        run: |
+          buildozer -v android debug
 
-      - name: Build with Buildozer
-        uses: ArtemSBulgakov/buildozer-action@v1
-        id: buildozer
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v3
         with:
-          command: buildozer android debug
-          buildozer_version: stable
-
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v2
-        with:
-          name: package
-          path: bin/*.apk  # Adjust based on where Buildozer outputs the APK
+          name: app-debug
+          path: bin/*.apk  # Uploads all APKs from bin/
