@@ -25,34 +25,31 @@ jobs:
         run: |
           pip install buildozer cython==0.29.33
 
-      - name: Initialize Buildozer (first run)
+      - name: Initialize Buildozer environment
         run: |
           mkdir -p ~/.android
           touch ~/.android/repositories.cfg
-          # First buildozer run will download SDK components
-          buildozer android debug 2>&1 | grep -v "Downloading" || true
-          # Wait for SDK download to complete
-          while [ ! -f ~/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin/sdkmanager ]; do
-            sleep 5
-          done
+          echo "Initializing Buildozer..."
+          buildozer init  # Initialize without full build
+          echo "Downloading Android SDK..."
+          buildozer android update sdk --no-use-sdk-wrapper --accept-licenses
 
-      - name: Accept Android licenses
+      - name: Install specific build-tools
         run: |
-          yes | ~/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses
+          echo "Installing build-tools..."
+          yes | ~/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin/sdkmanager \
+            "build-tools;34.0.0" \
+            "platforms;android-34" \
+            "platform-tools" \
+            "cmdline-tools;latest"
 
-      - name: Install Android build-tools
+      - name: Verify Android tools
         run: |
-          ~/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin/sdkmanager "build-tools;34.0.0" "platforms;android-34"
-
-      - name: Cache Buildozer dependencies
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.buildozer
-            ~/.gradle
-          key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}
-          restore-keys: |
-            ${{ runner.os }}-buildozer-
+          echo "Android SDK contents:"
+          ls -la ~/.buildozer/android/platform/android-sdk
+          echo "Build tools contents:"
+          ls -la ~/.buildozer/android/platform/android-sdk/build-tools/34.0.0/
+          ~/.buildozer/android/platform/android-sdk/build-tools/34.0.0/aidl --version
 
       - name: Build APK
         run: |
