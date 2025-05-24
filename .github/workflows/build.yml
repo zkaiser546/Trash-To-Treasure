@@ -6,7 +6,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04  # ✅ Updated to supported Ubuntu version
+    runs-on: ubuntu-22.04
     
     steps:
       - name: Checkout code
@@ -38,7 +38,7 @@ jobs:
           buildozer -v android debug
 
       - name: Upload APK artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: app-debug
-          path: bin/*.apk  # Uploads all APKs from bin/
+          path: bin/*.apk
