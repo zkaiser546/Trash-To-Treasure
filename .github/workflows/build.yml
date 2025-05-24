@@ -7,7 +7,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-22.04
-    timeout-minutes: 30
+    timeout-minutes: 45  # Increased timeout for NDK/SDK downloads
 
     steps:
       - name: Checkout code
@@ -26,34 +26,38 @@ jobs:
         run: |
           pip install buildozer cython==0.29.33
 
-      - name: Setup Android SDK
+      - name: Setup Android environment
         run: |
           mkdir -p ~/.android
           touch ~/.android/repositories.cfg
           
-          # Initialize Buildozer environment
+          # Initialize Buildozer if needed
           if [ ! -f buildozer.spec ]; then
             buildozer init
           fi
-          
+
+      - name: Install Android SDK and NDK
+        run: |
           # Clean previous installations
-          rm -rf ~/.buildozer/android/platform/android-sdk
+          rm -rf ~/.buildozer/android/platform
+          mkdir -p ~/.buildozer/android/platform
           
           # Install Command Line Tools
-          mkdir -p ~/.buildozer/android/platform/android-sdk/cmdline-tools
-          cd ~/.buildozer/android/platform/android-sdk/cmdline-tools
+          cd ~/.buildozer/android/platform
           wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
           unzip commandlinetools-linux-*.zip
           rm commandlinetools-linux-*.zip
-          mv cmdline-tools latest
-          cd -
-
-      - name: Install Android components
-        run: |
-          export ANDROID_SDK_ROOT=~/.buildozer/android/platform/android-sdk
+          mkdir -p cmdline-tools
+          mv cmdline-tools cmdline-tools/latest
+          
+          # Set environment variables
+          export ANDROID_SDK_ROOT=~/.buildozer/android/platform
           export PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin
           
+          # Accept licenses first
           yes | sdkmanager --licenses
+          
+          # Install platform tools and build tools
           sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
           
           # Verify installation
@@ -61,7 +65,10 @@ jobs:
 
       - name: Build APK
         run: |
-          export JAVA_OPTS="-Xmx2G"
+          export JAVA_OPTS="-Xmx4G"  # Increased memory
+          export ANDROID_SDK_ROOT=~/.buildozer/android/platform
+          export PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin
+          
           buildozer -v android debug
 
       - name: Upload APK artifact
