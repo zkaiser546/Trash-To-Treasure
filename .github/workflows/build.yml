@@ -25,15 +25,22 @@ jobs:
         run: |
           pip install buildozer cython==0.29.33
 
-      - name: Set up Android SDK
+      - name: Initialize Buildozer (first run)
         run: |
           mkdir -p ~/.android
           touch ~/.android/repositories.cfg
-          yes | buildozer android debug 2>&1 | grep "Downloading" || true
-          # Accept all licenses
+          # First buildozer run will download SDK components
+          buildozer android debug 2>&1 | grep -v "Downloading" || true
+          # Wait for SDK download to complete
+          while [ ! -f ~/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin/sdkmanager ]; do
+            sleep 5
+          done
+
+      - name: Accept Android licenses
+        run: |
           yes | ~/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses
 
-      - name: Install specific build-tools
+      - name: Install Android build-tools
         run: |
           ~/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin/sdkmanager "build-tools;34.0.0" "platforms;android-34"
 
