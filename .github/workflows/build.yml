@@ -7,7 +7,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-22.04
-    timeout-minutes: 45  # Increased timeout for NDK/SDK downloads
+    timeout-minutes: 45
 
     steps:
       - name: Checkout code
@@ -26,49 +26,38 @@ jobs:
         run: |
           pip install buildozer cython==0.29.33
 
-      - name: Setup Android environment
+      - name: Setup Android SDK
         run: |
           mkdir -p ~/.android
           touch ~/.android/repositories.cfg
           
-          # Initialize Buildozer if needed
-          if [ ! -f buildozer.spec ]; then
-            buildozer init
-          fi
-
-      - name: Install Android SDK and NDK
-        run: |
           # Clean previous installations
-          rm -rf ~/.buildozer/android/platform
+          rm -rf ~/.buildozer/android
           mkdir -p ~/.buildozer/android/platform
-          
-          # Install Command Line Tools
+
+          # Download and configure command line tools
           cd ~/.buildozer/android/platform
           wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
           unzip commandlinetools-linux-*.zip
           rm commandlinetools-linux-*.zip
-          mkdir -p cmdline-tools
-          mv cmdline-tools cmdline-tools/latest
-          
-          # Set environment variables
-          export ANDROID_SDK_ROOT=~/.buildozer/android/platform
+          mkdir -p android-sdk/cmdline-tools
+          mv cmdline-tools android-sdk/cmdline-tools/latest
+
+      - name: Install Android components
+        run: |
+          export ANDROID_SDK_ROOT=~/.buildozer/android/platform/android-sdk
           export PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin
           
-          # Accept licenses first
           yes | sdkmanager --licenses
-          
-          # Install platform tools and build tools
           sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
           
-          # Verify installation
+          # Verify critical components
           ls -la $ANDROID_SDK_ROOT/build-tools/34.0.0/aidl
+          ls -la $ANDROID_SDK_ROOT/cmdline-tools/latest
 
       - name: Build APK
         run: |
-          export JAVA_OPTS="-Xmx4G"  # Increased memory
-          export ANDROID_SDK_ROOT=~/.buildozer/android/platform
-          export PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin
-          
+          export JAVA_OPTS="-Xmx4G"
           buildozer -v android debug
 
       - name: Upload APK artifact
