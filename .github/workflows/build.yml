@@ -7,7 +7,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-22.04
-    timeout-minutes: 45
+    timeout-minutes: 60
 
     steps:
       - name: Checkout code
@@ -26,7 +26,7 @@ jobs:
         run: |
           pip install buildozer cython==0.29.33
 
-      - name: Setup Android SDK
+      - name: Setup Android SDK/NDK
         run: |
           mkdir -p ~/.android
           touch ~/.android/repositories.cfg
@@ -35,13 +35,16 @@ jobs:
           rm -rf ~/.buildozer/android
           mkdir -p ~/.buildozer/android/platform
 
-          # Download and configure command line tools
+          # Install Command Line Tools with correct structure
           cd ~/.buildozer/android/platform
           wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
           unzip commandlinetools-linux-*.zip
           rm commandlinetools-linux-*.zip
           mkdir -p android-sdk/cmdline-tools
           mv cmdline-tools android-sdk/cmdline-tools/latest
+
+          # Create compatibility symlink
+          ln -s cmdline-tools/latest android-sdk/tools
 
       - name: Install Android components
         run: |
@@ -50,17 +53,20 @@ jobs:
           
           yes | sdkmanager --licenses
           sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
-          
-          # Verify critical components
-          ls -la $ANDROID_SDK_ROOT/build-tools/34.0.0/aidl
-          ls -la $ANDROID_SDK_ROOT/cmdline-tools/latest
+
+      - name: Force NDK installation
+        run: |
+          buildozer android update  # Triggers NDK download
+          ls -la ~/.buildozer/android/platform/android-ndk*
 
       - name: Build APK
         run: |
           export JAVA_OPTS="-Xmx4G"
+          export ANDROID_SDK_ROOT=~/.buildozer/android/platform/android-sdk
+          export ANDROID_NDK_HOME=~/.buildozer/android/platform/android-ndk-r25b
           buildozer -v android debug
 
-      - name: Upload APK artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: app-debug
