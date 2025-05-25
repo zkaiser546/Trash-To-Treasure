@@ -27,25 +27,39 @@ jobs:
           source venv/bin/activate
           pip install buildozer cython==0.29.33
 
+      - name: Initialize Buildozer
+        run: |
+          source venv/bin/activate
+          if [ ! -f buildozer.spec ]; then
+            buildozer init
+          fi
+
+      - name: Configure buildozer.spec
+        run: |
+          source venv/bin/activate
+          # Clean existing buildozer section
+          sed -i '/^\[buildozer\]/,/^\[/ {/^\[buildozer\]/!{/^\[/!d}}' buildozer.spec
+          # Add/replace buildozer configuration
+          cat << EOF >> buildozer.spec
+          [buildozer]
+          log_level = 2
+          android.skip_clean = True
+          android.accept_sdk_license = True
+          android.sdk_path = $HOME/.buildozer/android/platform/android-sdk
+          android.ndk_path = $HOME/.buildozer/android/platform/android-ndk-r25b
+          EOF
+
       - name: Install Android SDK
         run: |
           mkdir -p ~/.buildozer/android/platform
           cd ~/.buildozer/android/platform
-          
-          # Download official Android tools
           wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
           unzip commandlinetools-linux-*.zip
           rm commandlinetools-linux-*.zip
-          
-          # Create proper directory structure
           mkdir -p android-sdk/cmdline-tools
           mv cmdline-tools android-sdk/cmdline-tools/latest
-          
-          # Setup environment
           export ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk
           export PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin
-          
-          # Accept licenses and install components
           yes | sdkmanager --licenses
           sdkmanager "platform-tools" "build-tools;34.0.0" "platforms;android-34"
 
@@ -55,19 +69,6 @@ jobs:
           wget https://dl.google.com/android/repository/android-ndk-r25b-linux.zip
           unzip android-ndk-*.zip
           rm android-ndk-*.zip
-
-      - name: Configure buildozer
-        run: |
-          source venv/bin/activate
-          echo "[buildozer]
-          android.sdk_path = $HOME/.buildozer/android/platform/android-sdk
-          android.ndk_path = $HOME/.buildozer/android/platform/android-ndk-r25b
-          android.skip_clean = True" >> buildozer.spec
-
-      - name: Verify installations
-        run: |
-          ls -la ~/.buildozer/android/platform/android-sdk/build-tools/34.0.0/aidl
-          ls -la ~/.buildozer/android/platform/android-ndk-r25b
 
       - name: Build APK
         run: |
