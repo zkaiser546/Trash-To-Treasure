@@ -9,6 +9,11 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 120
 
+    env:
+      ANDROID_SDK_ROOT: ${{ github.workspace }}/.buildozer/android/platform/android-sdk
+      PATH: ${{ github.workspace }}/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin:${{ github.workspace }}/.buildozer/android/platform/android-sdk/platform-tools:${{ github.workspace }}/venv/bin:${{ env.PATH }}
+      CFLAGS: "-DCYTHON_COMPILER_DIRECTIVES=language_level=3"
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -31,6 +36,7 @@ jobs:
         run: |
           python3 -m venv venv
           source venv/bin/activate
+          pip install --upgrade pip
           pip install buildozer cython==0.29.33 kivy==2.3.0
 
       - name: Create buildozer.spec
@@ -43,7 +49,7 @@ jobs:
           source.dir = .
           source.include_exts = py,png,jpg,kv,ttf,json
           version = 1.0
-          requirements = python3,kivy==2.3.0,sdl2,sdl2_image,sdl2_mixer,sdl2_ttf,openssl,sqlite3,android
+          requirements = python3,kivy==2.3.0,sdl2,sdl2_ttf,sdl2_image,sdl2_mixer,openssl,sqlite3,android
           orientation = portrait
           android.api = 34
           android.minapi = 21
@@ -59,19 +65,11 @@ jobs:
         run: |
           mkdir -p ~/.buildozer/android/platform
           cd ~/.buildozer/android/platform
-
           wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
-          unzip -qq commandlinetools-linux-*.zip
-          rm commandlinetools-linux-*.zip
-
-          mkdir -p android-sdk/cmdline-tools
-          mv cmdline-tools android-sdk/cmdline-tools/latest
-
-          export ANDROID_SDK_ROOT="$HOME/.buildozer/android/platform/android-sdk"
-          export PATH="$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin"
-
-          yes | sdkmanager --licenses
-          sdkmanager "platform-tools" "build-tools;34.0.0" "platforms;android-34"
+          unzip -qq commandlinetools-linux-*.zip -d android-sdk/cmdline-tools
+          mv android-sdk/cmdline-tools/cmdline-tools android-sdk/cmdline-tools/latest
+          yes | android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses
+          android-sdk/cmdline-tools/latest/bin/sdkmanager "platform-tools" "build-tools;34.0.0" "platforms;android-34"
 
       - name: Install NDK
         run: |
@@ -79,27 +77,6 @@ jobs:
           wget -q https://dl.google.com/android/repository/android-ndk-r25b-linux.zip
           unzip -qq android-ndk-*.zip
           rm android-ndk-*.zip
-
-      - name: Apply SDL2 patch and language_level
-        run: |
-          source venv/bin/activate
-          buildozer android update 2>&1 | tee p4a.log
-          
-          SDL_PATH=$(find ~/.buildozer/android/platform -wholename "*python-for-android*/recipes/sdl2/__init__.py" | head -n 1)
-          if [ -f "$SDL_PATH" ]; then
-            echo "Patching SDL2 for _BSD_SOURCE in $SDL_PATH"
-            sed -i 's/__USE_MISC/_BSD_SOURCE/g' "$SDL_PATH"
-            grep "_BSD_SOURCE" "$SDL_PATH" || exit 1
-          else
-            echo "SDL2 recipe not found, printing structure:"
-            find ~/.buildozer/android/platform -name sdl2
-            exit 1
-          fi
-
-          CYTHON_FILES=$(find . -type f \( -name "*.pyx" -o -name "*.pxd" \))
-          for file in $CYTHON_FILES; do
-            grep -q "cython: language_level" "$file" || echo "# cython: language_level=3" | cat - "$file" > temp && mv temp "$file"
-          done
 
       - name: Build APK
         run: |
