@@ -45,7 +45,6 @@ jobs:
           version = 1.0
           requirements = python3,kivy,openssl,sqlite3,android
           orientation = portrait
-          osx.python_version = 3
 
           [buildozer]
           log_level = 2
@@ -55,26 +54,45 @@ jobs:
           android.ndk_path = /home/runner/.buildozer/android/platform/android-ndk-r25b
           EOF
 
-      - name: Install Android SDK/NDK
+      - name: Install Android SDK
         run: |
           mkdir -p ~/.buildozer/android/platform
           cd ~/.buildozer/android/platform
           
-          # Install SDK
+          # Install command line tools
           wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
           unzip commandlinetools-linux-*.zip
           rm commandlinetools-linux-*.zip
+          
+          # Create proper directory structure
           mkdir -p android-sdk/cmdline-tools
           mv cmdline-tools android-sdk/cmdline-tools/latest
           
-          # Install components
-          yes | android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses
-          android-sdk/cmdline-tools/latest/bin/sdkmanager "platform-tools" "build-tools;34.0.0" "platforms;android-34"
+          # Create legacy symlinks
+          ln -sfn cmdline-tools/latest android-sdk/tools
+          ln -sfn ../cmdline-tools/latest/bin android-sdk/tools/bin
 
-          # Install NDK
+          # Set environment variables
+          echo "ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk" >> $GITHUB_ENV
+          echo "PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin" >> $GITHUB_ENV
+          echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> $GITHUB_ENV
+
+          # Accept licenses and install components
+          yes | sdkmanager --licenses
+          sdkmanager "platform-tools" "build-tools;34.0.0" "platforms;android-34"
+
+      - name: Install Android NDK
+        run: |
+          cd ~/.buildozer/android/platform
           wget https://dl.google.com/android/repository/android-ndk-r25b-linux.zip
           unzip android-ndk-*.zip
           rm android-ndk-*.zip
+
+      - name: Verify installations
+        run: |
+          ls -la $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager
+          ls -la $ANDROID_SDK_ROOT/build-tools/34.0.0/aidl
+          ls -la $ANDROID_NDK_HOME
 
       - name: Build APK
         run: |
