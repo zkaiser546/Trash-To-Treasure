@@ -7,16 +7,17 @@ on:
 jobs:
   build:
     runs-on: ubuntu-22.04
-    timeout-minutes: 90
+    timeout-minutes: 120
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Clean environment
+      - name: Nuclear cleanup
         run: |
           rm -rf ~/.buildozer ~/.android ~/.gradle venv
           rm -f buildozer.spec
+          sudo rm -rf /usr/local/lib/android/sdk
 
       - name: Install system dependencies
         run: |
@@ -30,27 +31,32 @@ jobs:
         run: |
           python3 -m venv venv
           source venv/bin/activate
-          pip install buildozer cython==0.29.33
+          pip install buildozer cython==0.29.33 kivy==2.3.0
 
-      - name: Create buildozer.spec
+      - name: Create optimized buildozer.spec
         run: |
           cat << EOF > buildozer.spec
           [app]
-          title = MyApp
-          package.name = myapp
-          package.domain = org.example
+          title = TrashToTreasure
+          package.name = trashtotreasure
+          package.domain = org.kaiser
           source.dir = .
           source.include_exts = py,png,jpg,kv,ttf,json
           version = 1.0
-          requirements = python3,kivy,openssl,sqlite3,android
+          requirements = python3,kivy==2.3.0,openssl,sqlite3,android
           orientation = portrait
+          android.api = 34
+          android.minapi = 21
+          android.ndk = 25b
+          android.sdk_path = $HOME/.buildozer/android/platform/android-sdk
+          android.ndk_path = $HOME/.buildozer/android/platform/android-ndk-r25b
 
           [buildozer]
           log_level = 2
           android.skip_clean = True
           android.accept_sdk_license = True
-          android.sdk_path = $HOME/.buildozer/android/platform/android-sdk
-          android.ndk_path = $HOME/.buildozer/android/platform/android-ndk-r25b
+          android.p4a_branch = master
+          android.arch = arm64-v8a
           EOF
 
       - name: Install Android SDK
@@ -58,55 +64,42 @@ jobs:
           mkdir -p ~/.buildozer/android/platform
           cd ~/.buildozer/android/platform
           
-          # Install command line tools
           wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
           unzip -qq commandlinetools-linux-*.zip
           rm commandlinetools-linux-*.zip
           
-          # Create proper directory structure
           mkdir -p android-sdk/cmdline-tools
           mv cmdline-tools android-sdk/cmdline-tools/latest
           
-          # Create legacy symlinks
           ln -sfn cmdline-tools/latest android-sdk/tools
           ln -sfn ../cmdline-tools/latest/bin android-sdk/tools/bin
 
-      - name: Install Android components
-        run: |
           export ANDROID_SDK_ROOT="$HOME/.buildozer/android/platform/android-sdk"
           export PATH="$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin"
           
-          # First install platform-tools to get basic components
-          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --install "platform-tools"
-          
-          # Then install build-tools
-          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --install "build-tools;34.0.0"
-          
-          # Finally install platform
-          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-34"
-          
-          # Accept licenses
-          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses
+          yes | sdkmanager --licenses
+          sdkmanager "platform-tools" "build-tools;34.0.0" "platforms;android-34"
 
-      - name: Install Android NDK
+      - name: Install correct NDK
         run: |
           cd ~/.buildozer/android/platform
           wget -q https://dl.google.com/android/repository/android-ndk-r25b-linux.zip
           unzip -qq android-ndk-*.zip
           rm android-ndk-*.zip
 
-      - name: Verify installations
+      - name: Patch Python-for-Android
         run: |
-          ls -la $HOME/.buildozer/android/platform/android-sdk/build-tools/34.0.0/aidl
-          ls -la $HOME/.buildozer/android/platform/android-ndk-r25b
+          source venv/bin/activate
+          buildozer android update
+          sed -i 's/__USE_MISC/_BSD_SOURCE/g' ~/.buildozer/android/platform/python-for-android/pythonforandroid/recipes/sdl2/__init__.py
 
       - name: Build APK
         run: |
           source venv/bin/activate
-          buildozer -v android debug
+          buildozer -v android debug deploy
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: android-apk
+          name: android-app
           path: bin/*.apk
