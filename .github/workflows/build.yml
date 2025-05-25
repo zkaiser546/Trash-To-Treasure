@@ -37,7 +37,10 @@ jobs:
           mkdir -p ~/.buildozer/android/platform
           cd ~/.buildozer/android/platform
           
-          # Download command line tools
+          # Clean existing SDK directory
+          rm -rf android-sdk cmdline-tools
+          
+          # Download and extract tools
           wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
           unzip -qq commandlinetools-linux-*.zip
           rm commandlinetools-linux-*.zip
@@ -46,9 +49,8 @@ jobs:
           mkdir -p android-sdk/cmdline-tools
           mv cmdline-tools android-sdk/cmdline-tools/latest
           
-          # Create legacy symlinks
-          ln -s cmdline-tools/latest android-sdk/tools
-          ln -s cmdline-tools/latest/bin/sdkmanager android-sdk/tools/bin/sdkmanager
+          # Create single symlink with force
+          ln -sfn cmdline-tools/latest android-sdk/tools
 
       - name: Install Android NDK
         run: |
@@ -66,7 +68,7 @@ jobs:
           # Accept licenses
           yes | sdkmanager --licenses
           
-          # Install essential components
+          # Install components
           sdkmanager "platform-tools" "build-tools;34.0.0" "platforms;android-34"
 
       - name: Verify installations
