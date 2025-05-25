@@ -52,24 +52,21 @@ jobs:
           # Create symlinks
           ln -sfn android-sdk/cmdline-tools/latest android-sdk/tools
 
-      - name: Install Android NDK
-        run: |
-          cd ~/.buildozer/android/platform
-          wget -q https://dl.google.com/android/repository/android-ndk-r25b-linux.zip
-          unzip -qq android-ndk-*.zip
-          rm android-ndk-*.zip
+          # Verify SDK structure
+          ls -la android-sdk/cmdline-tools/latest/bin/sdkmanager
 
-      - name: Configure Android environment
+      - name: Configure environment
         run: |
-          # Set environment variables with absolute paths
           echo "ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk" >> $GITHUB_ENV
           echo "ANDROID_NDK_HOME=$HOME/.buildozer/android/platform/android-ndk-r25b" >> $GITHUB_ENV
           echo "PATH=$PATH:$HOME/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_ENV
           echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> $GITHUB_ENV
-          
-          # Verify path setup
-          echo "Current PATH: $PATH"
-          which sdkmanager
+
+      - name: Verify paths
+        run: |
+          echo "Final PATH: $PATH"
+          which sdkmanager || echo "sdkmanager not found!"
+          ls -la $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager
 
       - name: Accept licenses and install components
         run: |
