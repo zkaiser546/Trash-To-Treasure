@@ -15,8 +15,7 @@ jobs:
 
       - name: Clean environment
         run: |
-          # Preserve python-for-android directory
-          rm -rf ~/.buildozer/android/{platform,app,deps}
+          rm -rf ~/.buildozer ~/.android ~/.gradle
 
       - name: Install system dependencies
         run: |
@@ -36,8 +35,12 @@ jobs:
       - name: Initialize Buildozer
         run: |
           source venv/bin/activate
-          buildozer init
-          buildozer android update  # Initialize p4a
+          # Only initialize if spec file doesn't exist
+          if [ ! -f buildozer.spec ]; then
+            buildozer init
+          fi
+          # Always update android components
+          buildozer android update
 
       - name: Install Android SDK/NDK
         run: |
@@ -56,9 +59,6 @@ jobs:
           wget -q https://dl.google.com/android/repository/android-ndk-r25b-linux.zip
           unzip -qq android-ndk-*.zip
           rm android-ndk-*.zip
-
-          # Verify p4a exists
-          ls -la ../python-for-android
 
       - name: Configure environment
         run: |
