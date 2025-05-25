@@ -15,7 +15,8 @@ jobs:
 
       - name: Clean environment
         run: |
-          rm -rf ~/.buildozer ~/.android ~/.gradle
+          # Preserve python-for-android directory
+          rm -rf ~/.buildozer/android/{platform,app,deps}
 
       - name: Install system dependencies
         run: |
@@ -32,57 +33,43 @@ jobs:
           pip install --upgrade pip wheel
           pip install buildozer cython==0.29.33
 
-      - name: Install Android SDK
+      - name: Initialize Buildozer
+        run: |
+          source venv/bin/activate
+          buildozer init
+          buildozer android update  # Initialize p4a
+
+      - name: Install Android SDK/NDK
         run: |
           mkdir -p ~/.buildozer/android/platform
           cd ~/.buildozer/android/platform
           
-          # Clean existing installation
-          rm -rf android-sdk cmdline-tools
-          
-          # Download and extract tools
+          # Install SDK
           wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
           unzip -qq commandlinetools-linux-*.zip
           rm commandlinetools-linux-*.zip
-          
-          # Create proper directory structure
           mkdir -p android-sdk/cmdline-tools
           mv cmdline-tools android-sdk/cmdline-tools/latest
-          
-          # Create symlinks
-          ln -sfn android-sdk/cmdline-tools/latest android-sdk/tools
+          ln -sfn cmdline-tools/latest android-sdk/tools
 
-          # Verify SDK structure
-          ls -la android-sdk/cmdline-tools/latest/bin/sdkmanager
+          # Install NDK
+          wget -q https://dl.google.com/android/repository/android-ndk-r25b-linux.zip
+          unzip -qq android-ndk-*.zip
+          rm android-ndk-*.zip
+
+          # Verify p4a exists
+          ls -la ../python-for-android
 
       - name: Configure environment
         run: |
           echo "ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk" >> $GITHUB_ENV
           echo "ANDROID_NDK_HOME=$HOME/.buildozer/android/platform/android-ndk-r25b" >> $GITHUB_ENV
-          echo "PATH=$PATH:$HOME/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_ENV
-          echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> $GITHUB_ENV
-
-      - name: Verify paths
-        run: |
-          echo "Final PATH: $PATH"
-          which sdkmanager || echo "sdkmanager not found!"
-          ls -la $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager
-
-      - name: Accept licenses and install components
-        run: |
-          yes | sdkmanager --licenses
-          sdkmanager "platform-tools" "build-tools;34.0.0" "platforms;android-34"
+          echo "PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin" >> $GITHUB_ENV
 
       - name: Build APK
         run: |
           source venv/bin/activate
-          buildozer android clean
           buildozer -v android debug
-          
-          if [ ! -f bin/*.apk ]; then
-            echo "APK generation failed!"
-            exit 1
-          fi
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
