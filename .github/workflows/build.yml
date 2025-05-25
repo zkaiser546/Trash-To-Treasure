@@ -49,8 +49,8 @@ jobs:
           log_level = 2
           android.skip_clean = True
           android.accept_sdk_license = True
-          android.sdk_path = /home/runner/.buildozer/android/platform/android-sdk
-          android.ndk_path = /home/runner/.buildozer/android/platform/android-ndk-r25b
+          android.sdk_path = $HOME/.buildozer/android/platform/android-sdk
+          android.ndk_path = $HOME/.buildozer/android/platform/android-ndk-r25b
           EOF
 
       - name: Install Android SDK
@@ -58,30 +58,31 @@ jobs:
           mkdir -p ~/.buildozer/android/platform
           cd ~/.buildozer/android/platform
           
-          # Download and extract command line tools
+          # Install command line tools
           wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
           unzip -qq commandlinetools-linux-*.zip
           rm commandlinetools-linux-*.zip
           
-          # Create proper directory structure
+          # Create directory structure
           mkdir -p android-sdk/cmdline-tools
           mv cmdline-tools android-sdk/cmdline-tools/latest
           
-          # Create necessary symlinks
+          # Create symlinks
           ln -sfn cmdline-tools/latest android-sdk/tools
           ln -sfn ../cmdline-tools/latest/bin android-sdk/tools/bin
 
-          # Verify sdkmanager exists
-          ls -la android-sdk/cmdline-tools/latest/bin/sdkmanager
-
       - name: Install Android components
         run: |
-          export ANDROID_SDK_ROOT=~/buildozer/android/platform/android-sdk
-          export PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin
+          export ANDROID_SDK_ROOT="$HOME/.buildozer/android/platform/android-sdk"
+          export PATH="$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin"
           
-          # Use full path to sdkmanager
-          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses
-          $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager "platform-tools" "build-tools;34.0.0" "platforms;android-34"
+          # Verify critical files
+          ls -la "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          ls -la "$ANDROID_SDK_ROOT/build-tools/34.0.0/aidl"
+          
+          # Install components
+          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses
+          "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "build-tools;34.0.0" "platforms;android-34"
 
       - name: Install Android NDK
         run: |
@@ -89,11 +90,6 @@ jobs:
           wget -q https://dl.google.com/android/repository/android-ndk-r25b-linux.zip
           unzip -qq android-ndk-*.zip
           rm android-ndk-*.zip
-
-      - name: Verify installations
-        run: |
-          ls -la ~/.buildozer/android/platform/android-sdk/build-tools/34.0.0/aidl
-          ls -la ~/.buildozer/android/platform/android-ndk-r25b
 
       - name: Build APK
         run: |
