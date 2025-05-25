@@ -24,7 +24,8 @@ jobs:
           sudo apt-get install -y \
             git zip unzip python3-pip python3-venv \
             openjdk-17-jdk autoconf libtool pkg-config \
-            zlib1g-dev libncurses5-dev cython3
+            zlib1g-dev libncurses5-dev cython3 \
+            libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev
 
       - name: Setup Python environment
         run: |
@@ -42,7 +43,7 @@ jobs:
           source.dir = .
           source.include_exts = py,png,jpg,kv,ttf,json
           version = 1.0
-          requirements = python3,kivy==2.3.0,openssl,sqlite3,android
+          requirements = python3,kivy==2.3.0,sdl2,sdl2_image,sdl2_mixer,sdl2_ttf,openssl,sqlite3,android
           orientation = portrait
           android.api = 34
           android.minapi = 21
@@ -58,20 +59,17 @@ jobs:
         run: |
           mkdir -p ~/.buildozer/android/platform
           cd ~/.buildozer/android/platform
-          
+
           wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
           unzip -qq commandlinetools-linux-*.zip
           rm commandlinetools-linux-*.zip
-          
+
           mkdir -p android-sdk/cmdline-tools
           mv cmdline-tools android-sdk/cmdline-tools/latest
-          
-          ln -sfn cmdline-tools/latest android-sdk/tools
-          ln -sfn ../cmdline-tools/latest/bin android-sdk/tools/bin
 
           export ANDROID_SDK_ROOT="$HOME/.buildozer/android/platform/android-sdk"
           export PATH="$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin"
-          
+
           yes | sdkmanager --licenses
           sdkmanager "platform-tools" "build-tools;34.0.0" "platforms;android-34"
 
@@ -82,29 +80,26 @@ jobs:
           unzip -qq android-ndk-*.zip
           rm android-ndk-*.zip
 
-      - name: Apply SDL2 patch
+      - name: Apply SDL2 patch and language_level
         run: |
           source venv/bin/activate
-          
-          # Force Python-for-Android initialization
-          echo "Initializing Python-for-Android..."
           buildozer android update 2>&1 | tee p4a.log
-          grep -q "SDL2" p4a.log || (echo "Python-for-Android init failed!"; exit 1)
-
-          # Find exact SDL2 path
-          SDL_PATH=$(find ~/.buildozer/android/platform -wholename "*python-for-android*/recipes/sdl2/__init__.py")
           
+          SDL_PATH=$(find ~/.buildozer/android/platform -wholename "*python-for-android*/recipes/sdl2/__init__.py" | head -n 1)
           if [ -f "$SDL_PATH" ]; then
-            echo "Patching file: $SDL_PATH"
+            echo "Patching SDL2 for _BSD_SOURCE in $SDL_PATH"
             sed -i 's/__USE_MISC/_BSD_SOURCE/g' "$SDL_PATH"
-            echo "Patch verification:"
             grep "_BSD_SOURCE" "$SDL_PATH" || exit 1
           else
-            echo "SDL2 path not found! Directory structure:"
-            find ~/.buildozer/android/platform -name python-for-android
+            echo "SDL2 recipe not found, printing structure:"
             find ~/.buildozer/android/platform -name sdl2
             exit 1
           fi
+
+          CYTHON_FILES=$(find . -type f \( -name "*.pyx" -o -name "*.pxd" \))
+          for file in $CYTHON_FILES; do
+            grep -q "cython: language_level" "$file" || echo "# cython: language_level=3" | cat - "$file" > temp && mv temp "$file"
+          done
 
       - name: Build APK
         run: |
