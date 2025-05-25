@@ -13,7 +13,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Nuclear cleanup
+      - name: Clean environment
         run: |
           rm -rf ~/.buildozer ~/.android ~/.gradle venv
           rm -f buildozer.spec
@@ -32,7 +32,7 @@ jobs:
           source venv/bin/activate
           pip install buildozer cython==0.29.33
 
-      - name: Create clean buildozer.spec
+      - name: Create buildozer.spec
         run: |
           cat << EOF > buildozer.spec
           [app]
@@ -63,11 +63,11 @@ jobs:
           unzip -qq commandlinetools-linux-*.zip
           rm commandlinetools-linux-*.zip
           
-          # Create directory structure
+          # Create proper directory structure
           mkdir -p android-sdk/cmdline-tools
           mv cmdline-tools android-sdk/cmdline-tools/latest
           
-          # Create symlinks
+          # Create legacy symlinks
           ln -sfn cmdline-tools/latest android-sdk/tools
           ln -sfn ../cmdline-tools/latest/bin android-sdk/tools/bin
 
@@ -76,13 +76,17 @@ jobs:
           export ANDROID_SDK_ROOT="$HOME/.buildozer/android/platform/android-sdk"
           export PATH="$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin"
           
-          # Verify critical files
-          ls -la "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
-          ls -la "$ANDROID_SDK_ROOT/build-tools/34.0.0/aidl"
+          # First install platform-tools to get basic components
+          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --install "platform-tools"
           
-          # Install components
-          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses
-          "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "build-tools;34.0.0" "platforms;android-34"
+          # Then install build-tools
+          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --install "build-tools;34.0.0"
+          
+          # Finally install platform
+          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-34"
+          
+          # Accept licenses
+          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses
 
       - name: Install Android NDK
         run: |
@@ -90,6 +94,11 @@ jobs:
           wget -q https://dl.google.com/android/repository/android-ndk-r25b-linux.zip
           unzip -qq android-ndk-*.zip
           rm android-ndk-*.zip
+
+      - name: Verify installations
+        run: |
+          ls -la $HOME/.buildozer/android/platform/android-sdk/build-tools/34.0.0/aidl
+          ls -la $HOME/.buildozer/android/platform/android-ndk-r25b
 
       - name: Build APK
         run: |
