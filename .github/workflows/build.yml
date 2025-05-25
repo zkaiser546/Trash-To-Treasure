@@ -1,90 +1,36 @@
-name: Android APK Builder
-
 on:
   push:
-    branches: [main]
+    branches: [ main ]
 
 jobs:
   build:
     runs-on: ubuntu-22.04
-    timeout-minutes: 120
-
-    env:
-      ANDROID_SDK_ROOT: ${{ github.workspace }}/.buildozer/android/platform/android-sdk
-      PATH: ${{ github.workspace }}/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin:${{ github.workspace }}/.buildozer/android/platform/android-sdk/platform-tools:${{ github.workspace }}/venv/bin:${{ env.PATH }}
-      CFLAGS: "-DCYTHON_COMPILER_DIRECTIVES=language_level=3"
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Clean environment
-        run: |
-          rm -rf ~/.buildozer ~/.android ~/.gradle venv
-          rm -f buildozer.spec
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            git zip unzip python3-pip python3-venv \
-            openjdk-17-jdk autoconf libtool pkg-config \
-            zlib1g-dev libncurses5-dev cython3 \
-            libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev
-
-      - name: Setup Python environment
-        run: |
-          python3 -m venv venv
-          source venv/bin/activate
-          pip install --upgrade pip
-          pip install buildozer cython==0.29.33 kivy==2.3.0
-
-      - name: Create buildozer.spec
-        run: |
-          cat << EOF > buildozer.spec
-          [app]
-          title = MyApp
-          package.name = myapp
-          package.domain = org.example
-          source.dir = .
-          source.include_exts = py,png,jpg,kv,ttf,json
-          version = 1.0
-          requirements = python3,kivy==2.3.0,sdl2,sdl2_ttf,sdl2_image,sdl2_mixer,openssl,sqlite3,android
-          orientation = portrait
-          android.api = 34
-          android.minapi = 21
-
-          [buildozer]
-          log_level = 2
-          android.skip_clean = True
-          android.accept_sdk_license = True
-          android.arch = arm64-v8a
-          EOF
-
-      - name: Install Android SDK
-        run: |
-          mkdir -p ~/.buildozer/android/platform
-          cd ~/.buildozer/android/platform
-          wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
-          unzip -qq commandlinetools-linux-*.zip -d android-sdk/cmdline-tools
-          mv android-sdk/cmdline-tools/cmdline-tools android-sdk/cmdline-tools/latest
-          yes | android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses
-          android-sdk/cmdline-tools/latest/bin/sdkmanager "platform-tools" "build-tools;34.0.0" "platforms;android-34"
-
-      - name: Install NDK
-        run: |
-          cd ~/.buildozer/android/platform
-          wget -q https://dl.google.com/android/repository/android-ndk-r25b-linux.zip
-          unzip -qq android-ndk-*.zip
-          rm android-ndk-*.zip
-
+      - uses: actions/checkout@v4
       - name: Build APK
-        run: |
-          source venv/bin/activate
-          buildozer -v android debug
+        uses: digreatbrian/buildozer-action@v2
+        with:
+          python-version: 3.11
+          buildozer-cmd: buildozer -v android debug
 
-      - name: Upload APK
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: android-apk
-          path: bin/*.apk
+          name: package
+          path: ./bin/*.apk
+
+### buildozer.spect
+
+Use these configurations
+
+# (int) Target Android API, should be as high as possible.
+android.api = 34
+
+# (int) Minimum API your APK / AAB will support.
+android.minapi = 21
+
+# (int) Android SDK version to use
+android.sdk = 34
+
+# (str) Android NDK version to use
+android.ndk = 25b
