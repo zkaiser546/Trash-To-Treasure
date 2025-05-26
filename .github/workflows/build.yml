@@ -16,7 +16,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: '3.10'
 
       - name: Install system dependencies
         run: |
@@ -37,29 +37,33 @@ jobs:
           touch ~/.android/repositories.cfg
           
           # Install Command Line Tools
-          mkdir -p ~/android-sdk/cmdline-tools/latest
-          cd ~/android-sdk/cmdline-tools/latest
+          mkdir -p ~/android-sdk
+          cd ~/android-sdk
           wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
           unzip commandlinetools-linux-*.zip
           rm commandlinetools-linux-*.zip
+          mv cmdline-tools latest
+          mkdir -p cmdline-tools
+          mv latest cmdline-tools/
           
-          # Install platform tools and build tools
+          # Accept licenses and install components
           yes | ~/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses
           ~/android-sdk/cmdline-tools/latest/bin/sdkmanager "platform-tools" "build-tools;34.0.0"
+          ~/android-sdk/cmdline-tools/latest/bin/sdkmanager "platforms;android-34"
           
           # Verify aidl exists
           ls -la ~/android-sdk/build-tools/34.0.0/aidl
 
       - name: Configure environment
         run: |
-          echo "ANDROID_SDK_ROOT=~/android-sdk" >> $GITHUB_ENV
-          echo "PATH=$PATH:~/android-sdk/cmdline-tools/latest/bin:~/android-sdk/build-tools/34.0.0" >> $GITHUB_ENV
+          echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
+          echo "PATH=$PATH:$HOME/android-sdk/platform-tools:$HOME/android-sdk/build-tools/34.0.0:$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_ENV
 
       - name: Build APK
         run: |
           buildozer init
           echo "[buildozer]
-          android.sdk_path = ~/android-sdk
+          android.sdk_path = $HOME/android-sdk
           android.accept_sdk_license = True" >> buildozer.spec
           
           buildozer -v android debug
